@@ -1,0 +1,51 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+class SelfOrganizingMap:
+    def __init__(self, m, n, dim, learning_rate=0.5, radius=None, epochs=1000):
+        self.m, self.n, self.dim = m, n, dim
+        self.lr = learning_rate
+        self.epochs = epochs
+        self.radius = radius if radius else max(m, n) / 2
+        self.weights = np.random.rand(m, n, dim)
+
+    def _bmu(self, x):
+        dists = np.linalg.norm(self.weights - x, axis=2)
+        return np.unravel_index(np.argmin(dists), (self.m, self.n))
+
+    def _update(self, x, bmu, epoch, time_const):
+        lr = self.lr * np.exp(-epoch / self.epochs)
+        r = self.radius * np.exp(-epoch / time_const)
+        for i in range(self.m):
+            for j in range(self.n):
+                dist = np.linalg.norm(np.array([i, j]) - np.array(bmu))
+                if dist <= r:
+                    influence = np.exp(-(dist ** 2) / (2 * (r ** 2)))
+                    self.weights[i, j] += lr * influence * (x - self.weights[i, j])
+
+    def train(self, data):
+        time_const = self.epochs / np.log(self.radius)
+        for epoch in range(self.epochs):
+            for x in data:
+                bmu = self._bmu(x)
+                self._update(x, bmu, epoch, time_const)
+            if epoch % (self.epochs // 10) == 0:
+                print(f"Epoch {epoch}/{self.epochs}")
+
+    def map_vectors(self, data):
+        return [self._bmu(x) for x in data]
+
+
+if __name__ == "__main__":
+    data = np.random.rand(200, 2)
+    som = SelfOrganizingMap(10, 10, 2, learning_rate=0.5, epochs=100)
+    som.train(data)
+    mapped = som.map_vectors(data)
+
+    plt.figure(figsize=(6, 6))
+    plt.scatter(data[:, 0], data[:, 1], c="blue", label="Input Data")
+    for m in mapped:
+        plt.scatter(som.weights[m[0], m[1], 0], som.weights[m[0], m[1], 1], c="red", marker="x")
+    plt.title("Self-Organizing Map (SOM)")
+    plt.legend()
+    plt.show()
