@@ -1,0 +1,59 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+class LVQ:
+    def __init__(self, lr=0.1, epochs=100, decay=0.95):
+        self.lr = lr
+        self.epochs = epochs
+        self.decay = decay
+        self.prototypes = None
+        self.labels = None
+
+    def _init_prototypes(self, X, y, n_per_class):
+        self.prototypes, self.labels = [], []
+        for c in np.unique(y):
+            idx = np.where(y == c)[0]
+            chosen = X[np.random.choice(idx, n_per_class, replace=False)]
+            self.prototypes.extend(chosen)
+            self.labels.extend([c] * n_per_class)
+        self.prototypes = np.array(self.prototypes)
+        self.labels = np.array(self.labels)
+
+    def fit(self, X, y, n_per_class=1):
+        self._init_prototypes(X, y, n_per_class)
+        for _ in range(self.epochs):
+            for xi, label in zip(X, y):
+                d = np.linalg.norm(self.prototypes - xi, axis=1)
+                win = np.argmin(d)
+                if self.labels[win] == label:
+                    self.prototypes[win] += self.lr * (xi - self.prototypes[win])
+                else:
+                    self.prototypes[win] -= self.lr * (xi - self.prototypes[win])
+            self.lr *= self.decay
+
+    def predict(self, X):
+        d = np.linalg.norm(self.prototypes[:, None] - X, axis=2)
+        win = np.argmin(d, axis=0)
+        return self.labels[win]
+
+
+if __name__ == "__main__":
+    np.random.seed(42)
+    c0 = np.random.randn(50, 2) + [0, 0]
+    c1 = np.random.randn(50, 2) + [3, 3]
+    X = np.vstack((c0, c1))
+    y = np.array([0]*50 + [1]*50)
+
+    lvq = LVQ(lr=0.3, epochs=20)
+    lvq.fit(X, y, n_per_class=2)
+    preds = lvq.predict(X)
+    acc = np.mean(preds == y)
+    print(f"Training Accuracy: {acc:.2f}")
+
+    plt.figure(figsize=(6,6))
+    plt.scatter(X[:,0], X[:,1], c=y, cmap="coolwarm", alpha=0.6)
+    plt.scatter(lvq.prototypes[:,0], lvq.prototypes[:,1],
+                c=lvq.labels, cmap="coolwarm", edgecolors="k",
+                marker="X", s=200)
+    plt.title("Learning Vector Quantization (LVQ)")
+    plt.show()
